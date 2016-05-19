@@ -882,3 +882,24 @@ We need to bypass NES / ASLR / Stack Canaries..
 - *Weak implementations* (non-random) make the cookie easy to guess
 - Even if there are strong implementations, attacks to *reduce system entropy*
   make the cookie easy to guess
+
+---
+
+# Contacts
+
+- **IRC**, **freenode** (*real-time*): `alem0lars`
+- **Email** (*eta 1 week*): molari.alessandro@gmail.com
+
+
+- **Blog**: [https://alem0lars.me](https://alem0lars.me)
+    - thanks to [anapnea](https://anapnea.net) for free hosting
+
+
+- **Twitter**: `alem0lars`
+- I don't use facebook
+
+---
+
+# Thanks
+
+With ❤ by Alessandro Molari & CeSeNA Security
