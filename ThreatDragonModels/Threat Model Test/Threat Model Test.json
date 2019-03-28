@@ -1,0 +1,18 @@
+{
+  "summary": {
+    "title": "Threat Model Test",
+    "owner": "AleNB",
+    "description": "This is a description."
+  },
+  "detail": {
+    "contributors": [],
+    "diagrams": [
+      {
+        "title": "Test",
+        "thumbnail": "./public/content/images/thumbnail.jpg",
+        "id": 0
+      }
+    ],
+    "reviewer": "AleB"
+  }
+}
